@@ -180,6 +180,8 @@ void compute_using_pthreads_v1(float *x, float *y, float a, int num_elements, in
     }
 
     for(i = 0; i < num_threads; i++) pthread_join(threads[i], NULL);
+    free(args); 
+    free(threads);
     return;
 
 FAIL_C_TCREATE:
@@ -228,6 +230,8 @@ void compute_using_pthreads_v2(float *x, float *y, float a, int num_elements, in
     }
 
     for(i = 0; i < num_threads; i++) pthread_join(threads[i], NULL);
+    free(args); 
+    free(threads);
     return;
 
 FAIL_S_TCREATE:
