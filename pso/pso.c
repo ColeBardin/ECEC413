@@ -41,18 +41,13 @@ int main(int argc, char **argv)
 
     /* Optimize using reference version */
     int status;
-    /*
     status = optimize_gold(function, dim, swarm_size, xmin, xmax, max_iter);
     if (status < 0) {
         fprintf(stderr, "Error optimizing function using reference code\n");
         exit (EXIT_FAILURE);
     }
-    */
 
-    /* FIXME: Complete this function to perform PSO using pthreads. 
-     * Return -1 on error, 0 on success. Print best-performing 
-     * particle within the function prior to returning. 
-     */
+    /* Perform PSO using pthreads. */
     status = optimize_using_pthreads(function, dim, swarm_size, xmin, xmax, max_iter, num_threads);
     if (status < 0) {
         fprintf(stderr, "Error optimizing function using pthreads\n");

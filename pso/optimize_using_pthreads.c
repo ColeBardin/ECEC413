@@ -28,15 +28,15 @@ typedef struct
     int num_threads;
 } thread_arg_t;
 
-bool thread_halt; /* Halts threads after they iterate their particles */
+int global_iter; /* Gloabl iteration counter controlled by main for thread sync */
 int thread_ready; /* Counts how many threads have interated their particles */
 int global_g; /* Best index but a global scope, set by thread 0, used by everyone else */
-pthread_mutex_t mutex;
+pthread_mutex_t mutex; /* Mutex to lock access to the thread ready counter */
 
 void *swam_thread(void *args)
 {
     thread_arg_t *arg = args;
-    int i, j, iter;
+    int i, j, iter, g;
     float w, c1, c2;
     float r1, r2;
     float curr_fitness;
@@ -45,6 +45,7 @@ void *swam_thread(void *args)
     swarm_t *swarm = arg->swarm;
     float xmax = arg->xmax;
     float xmin = arg->xmin;
+    float best_fitness;
 
     w = 0.79;
     c1 = 1.49;
@@ -55,7 +56,6 @@ void *swam_thread(void *args)
 
     while (iter < max_iter) 
     {
-        if(arg->tid == 0) thread_halt = true;
         for (i = arg->start; i < arg->stop; i++)
         {
             particle = &swarm->particle[i];
@@ -86,34 +86,34 @@ void *swam_thread(void *args)
             if (curr_fitness < particle->fitness) 
             {
                 particle->fitness = curr_fitness;
-                for (j = 0; j < particle->dim; j++)
-                    particle->pbest[j] = particle->x[j];
+                for (j = 0; j < particle->dim; j++) particle->pbest[j] = particle->x[j];
             }
         }
 
-        pthread_mutex_lock(&mutex);
-        thread_ready++;
-        printf("thread %d finished iteration %d (%d ready of %d)\n", arg->tid, iter, thread_ready, arg->num_threads);
-        pthread_mutex_unlock(&mutex);
-        if(arg->tid == 0)
-        {
-            while(thread_ready < arg->num_threads) usleep(10);
-            thread_ready = 0;
-            /* Identify best performing particle. HINT: You can inline this function when optimizing using pthreads. */
-            global_g = pso_get_best_fitness(swarm);
-            thread_halt = false;
+        // Evaluate fitness of particles this thread owns
+        g = -1;
+        best_fitness = INFINITY;
+        for (i = arg->start; i < arg->stop; i++) {
+            particle = &swarm->particle[i];
+            if (particle->fitness < best_fitness) {
+                best_fitness = particle->fitness;
+                g = i;
+            }
         }
-        else while(thread_halt) usleep(10);
+        // Check if thread found new best, update gloabl g val
+        pthread_mutex_lock(&mutex);
+        if(global_g == -1) best_fitness = INFINITY;
+        else best_fitness = swarm->particle[global_g].fitness;
+        if(swarm->particle[g].fitness < best_fitness) global_g = g;
+        thread_ready++;
+        pthread_mutex_unlock(&mutex);
+
+        while(iter == global_iter) usleep(1);
         for (i = arg->start; i < arg->stop; i++) {
             particle = &swarm->particle[i];
             particle->g = global_g;
         }
         
-#ifdef SIMPLE_DEBUG
-        /* Print best performing particle */
-        fprintf(stderr, "\nIteration %d:\n", iter);
-        pso_print_particle(&swarm->particle[g]);
-#endif
         iter++;
     }
     return NULL;
@@ -148,14 +148,16 @@ int pso_solve_thread(char *function, swarm_t *swarm, float xmax, float xmin, int
         exit(EXIT_FAILURE);
     }
 
-    //printf("particles: %d\n", swarm_size);
-    //printf("ppt: %d\n", ppt);
-    //printf("extra: %d\n", extra);
-    //printf("threads: %d\n", num_threads);
+#ifdef VERBOSE_DEBUG
+    printf("particles: %d\n", swarm_size);
+    printf("ppt: %d\n", ppt);
+    printf("extra: %d\n", extra);
+    printf("threads: %d\n", num_threads);
+#endif
 
-    thread_halt = true;
     thread_ready = 0;
     pthread_mutex_init(&mutex, NULL);
+    global_iter = 0;
     global_g = -1;
     for(i = 0; i < num_threads; i++)
     {
@@ -168,12 +170,21 @@ int pso_solve_thread(char *function, swarm_t *swarm, float xmax, float xmin, int
         args[i].start = i * ppt + (i < extra ? i : extra);
         args[i].stop = args[i].start + ppt + (i < extra ? 1 : 0);
         args[i].num_threads = num_threads;
+#ifdef VERBOSE_DEBUG
         printf("thread %d: from %d to %d (count %d)\n", i, args[i].start, args[i].stop, args[i].stop - args[i].start);
+#endif
         if(pthread_create(&threads[i], NULL, swam_thread, &args[i]) != 0)
         {
             fprintf(stderr, "ERROR: Failed to create pthread %d\n", i);
             exit(EXIT_FAILURE);
         }
+    }
+
+    while(global_iter < max_iter)
+    {
+        while(thread_ready < num_threads) usleep(1);
+        thread_ready = 0;
+        global_iter++;
     }
 
     for(i = 0; i < num_threads; i++) pthread_join(threads[i], NULL);
