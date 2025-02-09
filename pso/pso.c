@@ -16,6 +16,7 @@
  */  
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include "pso.h"
 
 int main(int argc, char **argv)
@@ -39,20 +40,30 @@ int main(int argc, char **argv)
     int max_iter = atoi(argv[6]);
     int num_threads = atoi(argv[7]);
 
+	struct timeval start, stop;
     /* Optimize using reference version */
     int status;
+	gettimeofday(&start, NULL);
     status = optimize_gold(function, dim, swarm_size, xmin, xmax, max_iter);
+	gettimeofday(&stop, NULL);
     if (status < 0) {
         fprintf(stderr, "Error optimizing function using reference code\n");
         exit (EXIT_FAILURE);
     }
 
+	printf("Execution time (old) = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
+
     /* Perform PSO using pthreads. */
+	gettimeofday(&start, NULL);
     status = optimize_using_pthreads(function, dim, swarm_size, xmin, xmax, max_iter, num_threads);
+	gettimeofday(&stop, NULL);
     if (status < 0) {
         fprintf(stderr, "Error optimizing function using pthreads\n");
         exit (EXIT_FAILURE);
     }
+	printf("Execution time (thread) = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
     
     exit(EXIT_SUCCESS);
 }
