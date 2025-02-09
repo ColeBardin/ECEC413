@@ -4,7 +4,8 @@
  * Date: January 31, 2025
  *
  */
-#define _DEFAULT_SOURCE
+#define _POSIX_SOURCE
+#define _BSD_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
