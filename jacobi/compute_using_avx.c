@@ -15,7 +15,6 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
     int i, j;
     int num_rows = A.num_rows;
     int num_cols = A.num_columns;
-    int k;
 
     /* Allocate n x 1 matrix to hold iteration values.*/
     matrix_t new_x = allocate_matrix(num_rows, 1, 0);      
@@ -49,9 +48,14 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
             /* Horizontal sum of AVX register */
             float sum_array[8] __attribute__((aligned(32)));
             _mm256_storeu_ps(sum_array, sum_vec);
-            #pragma GCC unroll 8
-            for(k = 0; k < 8; k++) sum += sum_array[k];
-            //sum += sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3];
+            sum += sum_array[0];
+            sum += sum_array[1];
+            sum += sum_array[2];
+            sum += sum_array[3];
+            sum += sum_array[4];
+            sum += sum_array[5];
+            sum += sum_array[6];
+            sum += sum_array[7];
 
             /* Compute new value */
             dest[i] = (B.elements[i] - sum) / A.elements[i * num_cols + i];
@@ -71,10 +75,14 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
         /* Reduce SSD */
         float ssd_array[8] __attribute__((aligned(32)));
         _mm256_storeu_ps(ssd_array, ssd_vec);
-        ssd = 0.0f;
-        #pragma GCC unroll 8
-        for(k = 0; k < 8; k++) ssd = ssd_array[k];
-        //ssd = ssd_array[0] + ssd_array[1] + ssd_array[2] + ssd_array[3];
+        ssd  = ssd_array[0];
+        ssd += ssd_array[1];
+        ssd += ssd_array[2];
+        ssd += ssd_array[3];
+        ssd += ssd_array[4];
+        ssd += ssd_array[5];
+        ssd += ssd_array[6];
+        ssd += ssd_array[7];
 
         num_iter++;
         mse = sqrt(ssd); /* Mean squared error. */
