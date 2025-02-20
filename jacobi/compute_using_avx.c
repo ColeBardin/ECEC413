@@ -47,8 +47,8 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
 
             /* Horizontal sum of AVX register */
             float sum_array[4] __attribute__((aligned(16)));
-            _mm_store_ps(sum_array, sum_vec);
-            sum = sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3];
+            _mm_storeu_ps(sum_array, sum_vec);
+            sum += sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3];
 
             /* Compute new value */
             dest[i] = (B.elements[i] - sum) / A.elements[i * num_cols + i];
@@ -67,12 +67,12 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
 
         /* Reduce SSD */
         float ssd_array[4] __attribute__((aligned(16)));
-        _mm_store_ps(ssd_array, ssd_vec);
+        _mm_storeu_ps(ssd_array, ssd_vec);
         ssd = ssd_array[0] + ssd_array[1] + ssd_array[2] + ssd_array[3];
 
         num_iter++;
         mse = sqrt(ssd); /* Mean squared error. */
-#ifdef PRINT
+#ifdef DEBUG
         fprintf(stderr, "Iteration: %d. MSE = %f\n", num_iter, mse);
 #endif
 
