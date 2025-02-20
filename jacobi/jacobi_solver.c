@@ -4,8 +4,8 @@
  * Author: Naga Kandasamy
  * Date modified: February 13, 2025
  *
- * Student name(s): FIXME
- * Date modified: FIXME
+ * Student name(s): Cole Bardin
+ * Date modified: 2/19/25
  *
  * Build as follosw: make clean && make
 */
@@ -17,15 +17,12 @@
 #include <math.h>
 #include "jacobi_solver.h"
 
-/* Uncomment the line below to spit out debug information */ 
-/* #define DEBUG */
-
 int main(int argc, char **argv) 
 {
 	if (argc < 3) {
-		fprintf(stderr, "Usage: %s matrix-size num-threads\n", argv[0]);
-        fprintf(stderr, "matrix-size: width of the square matrix\n");
-        fprintf(stderr, "num-threads: number of worker threads to create\n");
+		fprintf(stdout, "Usage: %s matrix-size num-threads\n", argv[0]);
+        fprintf(stdout, "matrix-size: width of the square matrix\n");
+        fprintf(stdout, "num-threads: number of worker threads to create\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -39,7 +36,9 @@ int main(int argc, char **argv)
     matrix_t pthread_avx_solution_x;    /* Solution computed using pthreads + AVX */
 
 	/* Generate diagonally dominant matrix */
-    fprintf(stderr, "\nCreating input matrices\n");
+#ifdef PRINT
+    fprintf(stdout, "\nCreating input matrices\n");
+#endif
 	srand(time(NULL));
 	A = create_diagonally_dominant_matrix(matrix_size, matrix_size);
 	if (A.elements == NULL) {
@@ -61,25 +60,37 @@ int main(int argc, char **argv)
 
     int max_iter = 100000; /* Maximum number of iterations to run */
     /* Compute Jacobi solution using reference code */
-    fprintf(stderr, "**************\n");
-	fprintf(stderr, "Generating solution using reference\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+	fprintf(stdout, "Generating solution using reference\n");
+#endif
     compute_gold(A, reference_x, B, max_iter);
     display_jacobi_solution(A, reference_x, B); /* Display statistics */
-    fprintf(stderr, "**************\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+#endif
 	
 	/* Compute Jacobi solution using AVX. Return solution in avx_solution_x. */
-    fprintf(stderr, "**************\n");
-    fprintf(stderr, "Generating solution using AVX\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+    fprintf(stdout, "Generating solution using AVX\n");
+#endif
 	compute_using_avx(A, avx_solution_x, B, max_iter);
     display_jacobi_solution(A, avx_solution_x, B); /* Display statistics */
-    fprintf(stderr, "**************\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+#endif
     	
 	/* Compute Jacobi solution using pthreads. Return solution in pthread_solution_x. */
-    fprintf(stderr, "**************\n");
-    fprintf(stderr, "Generating solution using pthreads + AVX\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+    fprintf(stdout, "Generating solution using pthreads + AVX\n");
+#endif
 	compute_using_pthread_avx(A, pthread_avx_solution_x, B, max_iter, num_threads);
     display_jacobi_solution(A, pthread_avx_solution_x, B); /* Display statistics */
-    fprintf(stderr, "**************\n");
+#ifdef PRINT
+    fprintf(stdout, "**************\n");
+#endif
 
     free(A.elements); 
 	free(B.elements); 
@@ -119,13 +130,13 @@ void print_matrix(const matrix_t M)
     int i, j;
 	for (i = 0; i < M.num_rows; i++) {
         for (j = 0; j < M.num_columns; j++) {
-			fprintf(stderr, "%f ", M.elements[i * M.num_columns + j]);
+			fprintf(stdout, "%f ", M.elements[i * M.num_columns + j]);
         }
 		
-        fprintf(stderr, "\n");
+        fprintf(stdout, "\n");
 	} 
 	
-    fprintf(stderr, "\n");
+    fprintf(stdout, "\n");
     return;
 }
 
@@ -167,7 +178,9 @@ matrix_t create_diagonally_dominant_matrix(int num_rows, int num_columns)
 	M.elements = (float *)malloc(size * sizeof(float));
 
     int i, j;
-	fprintf(stderr, "Generating %d x %d matrix with numbers between [-.5, .5]\n", num_rows, num_columns);
+#ifdef PRINT
+	fprintf(stdout, "Generating %d x %d matrix with numbers between [-.5, .5]\n", num_rows, num_columns);
+#endif
 	for (i = 0; i < size; i++)
         M.elements[i] = get_random_number(MIN_NUMBER, MAX_NUMBER);
 	
@@ -190,6 +203,4 @@ matrix_t create_diagonally_dominant_matrix(int num_rows, int num_columns)
 	
     return M;
 }
-
-
 

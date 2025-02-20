@@ -46,7 +46,9 @@ void compute_gold(const matrix_t A, matrix_t x, const matrix_t B, int max_iter)
 
         num_iter++;
         mse = sqrt(ssd); /* Mean squared error. */
+#ifdef PRINT
         fprintf(stderr, "Iteration: %d. MSE = %f\n", num_iter, mse); 
+#endif
         
         if ((mse <= THRESHOLD) || (num_iter == max_iter))
             done = 1;
@@ -57,10 +59,12 @@ void compute_gold(const matrix_t A, matrix_t x, const matrix_t B, int max_iter)
         dest = temp;
     }
 
+#ifdef PRINT
     if (num_iter < max_iter)
         fprintf(stderr, "\nConvergence achieved after %d iterations\n", num_iter);
     else
         fprintf(stderr, "\nMaximum allowed iterations reached\n");
+#endif
 
     free(new_x.elements);
 }
@@ -83,7 +87,9 @@ void display_jacobi_solution(const matrix_t A, const matrix_t x, const matrix_t 
         diff += fabsf(line_sum - B.elements[i]);
 	}
 
+#ifdef PRINT
 	fprintf(stderr, "Average diff between LHS and RHS %f\n", diff/(float)num_rows);
+#endif
     return;
 }
 

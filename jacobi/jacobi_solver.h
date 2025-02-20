@@ -5,6 +5,11 @@
 #define MIN_NUMBER 2        /* Min number in the A and b matrices */
 #define MAX_NUMBER 10       /* Max number in the A and b matrices */
 
+/* Uncomment the line below to spit out debug information */ 
+/* #define DEBUG */
+#define PRINT 
+
+
 /* Matrix structure declaration */
 typedef struct matrix_s {
     unsigned int num_columns;   /* Matrix width */
