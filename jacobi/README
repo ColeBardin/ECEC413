@@ -1,0 +1,15 @@
+Jacobi Solver Project by Cole Bardin
+
+Build with:
+
+$ make clean && make
+
+
+Run with:
+
+$ ./JACOBI_SOLVER <matrix_size> <num_threads>
+
+
+Test with:
+
+$ ./test.sh
