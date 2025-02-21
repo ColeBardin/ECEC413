@@ -1,6 +1,6 @@
 /* Optimize Jacobi using pthread and AVX instructions */
 
-#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE 600
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -39,9 +39,6 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
 {
     int i;
     int num_rows = A.num_rows;
-    long num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-    /* Don't use more threads than cores since that defeats the purpose of parallelism */
-    if(num_threads > num_cpus) num_threads = num_cpus;
     /* Assume that N % (num_threads * VECTOR_SIZE) = 0 */
     int chunk_size = num_rows / num_threads;
 
