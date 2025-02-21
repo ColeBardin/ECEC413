@@ -1,7 +1,6 @@
 /* Optimize Jacobi using pthread and AVX instructions */
 
-#define _POSIX_SOURCE
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -18,10 +17,10 @@
 typedef struct 
 {
     int tid;
-    matrix_t *A;
-    matrix_t *x;
-    matrix_t *new_x;
-    matrix_t *B;
+    matrix_t A;
+    matrix_t x;
+    matrix_t new_x;
+    matrix_t B;
     int max_iter;
     int start;
     int stop;
@@ -30,9 +29,11 @@ typedef struct
 void *thread_body(void *arg);
 
 int global_iter;
-int thread_ready; 
-int global_g; 
+int stop_threads;
+float global_ssd;
 pthread_mutex_t mutex; 
+pthread_barrier_t s0;
+pthread_barrier_t s1;
 
 void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x, const matrix_t B, int max_iter, int num_threads)
 {
@@ -42,11 +43,14 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
     /* Don't use more threads than cores since that defeats the purpose of parallelism */
     if(num_threads > num_cpus) num_threads = num_cpus;
     /* Assume that N % (num_threads * VECTOR_SIZE) = 0 */
-    int chunk_size = num_rows / (num_threads * VECTOR_SIZE);
+    int chunk_size = num_rows / num_threads;
+
+    pthread_mutex_init(&mutex, NULL);
+    pthread_barrier_init(&s0, NULL, num_threads);
+    pthread_barrier_init(&s1, NULL, num_threads);
 
     /* FIXME testing */
-    max_iter = 1;
-    global_iter = 0;
+    stop_threads = 0;
 
     /* Allocate n x 1 matrix to hold iteration values.*/
     matrix_t new_x = allocate_matrix(num_rows, 1, 0);      
@@ -68,10 +72,10 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
     for(i = 0; i < num_threads; i++)
     {
         argz[i].tid = i;
-        argz[i].A = &A;
-        argz[i].x = &pthread_avx_solution_x;
-        argz[i].new_x = &new_x;
-        argz[i].B = &B;
+        argz[i].A = A;
+        argz[i].x = pthread_avx_solution_x;
+        argz[i].new_x = new_x;
+        argz[i].B = B;
         argz[i].max_iter = max_iter;
         argz[i].start = i * chunk_size;
         argz[i].stop = (i + 1) * chunk_size;
@@ -82,14 +86,14 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
         }
     }
 
-    while(global_iter < max_iter)
-    {
-        while(thread_ready < num_threads) usleep(1);
-        thread_ready = 0;
-        global_iter++;
-    }
-
     for(i = 0; i < num_threads; i++) pthread_join(threads[i], NULL);
+
+#ifdef PRINT
+    if (global_iter < max_iter)
+        fprintf(stderr, "\nConvergence achieved after %d iterations\n", global_iter);
+    else
+        fprintf(stderr, "\nMaximum allowed iterations reached\n");
+#endif
 
     free(argz);
     free(threads);
@@ -98,21 +102,32 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
 
 void *thread_body(void *arg)
 {
-    int i;
+    int i, j;
     int iter = 0;
     arg_t *args = (arg_t *)arg;
     int tid = args->tid;
-    matrix_t *A = args->A;
-    matrix_t *x = args->x;
-    matrix_t *new_x = args->new_x;
-    matrix_t *B = args->B;
+    matrix_t A = args->A;
+    matrix_t x = args->x;
+    matrix_t new_x = args->new_x;
+    matrix_t B = args->B;
     int max_iter = args->max_iter;
     int start = args->start;
     int stop = args->stop;
+    int num_cols = A.num_columns;
 
-    while(iter < max_iter)
+    double ssd, mse;
+    /* Setup the ping-pong buffers */
+    float *src = x.elements;
+    float *dest = new_x.elements;
+    float *temp;
+
+#ifdef DEBUG
+    printf("DEBUG: Thread %d working on rows [%d - %d)\n", tid, start, stop);
+#endif
+
+    while(!stop_threads)
     {
-        for (i = start; i < stop; i++) {
+        for (i = start; i < stop; i++) { // iterate through rows
             float sum = -A.elements[i * num_cols + i] * src[i];
 
             __m256 sum_vec = _mm256_setzero_ps(); // AVX sum accumulator
@@ -143,7 +158,7 @@ void *thread_body(void *arg)
         /* Compute Mean Squared Error using AVX */
         __m256 ssd_vec = _mm256_setzero_ps();
 
-        for (i = 0; i < num_rows; i += VECTOR_SIZE) {
+        for (i = start; i < stop; i += VECTOR_SIZE) {
             __m256 src_vec = _mm256_loadu_ps(&src[i]);
             __m256 dest_vec = _mm256_loadu_ps(&dest[i]);
             __m256 diff = _mm256_sub_ps(dest_vec, src_vec);
@@ -162,13 +177,32 @@ void *thread_body(void *arg)
         ssd += ssd_array[5];
         ssd += ssd_array[6];
         ssd += ssd_array[7];
-        // barrier sync
-        pthread_mutex_lock(&mutex);
-        thread_ready++;
-        pthread_mutex_unlock(&mutex);
-        while(iter == global_iter) usleep(1);
 
+        pthread_mutex_lock(&mutex);
+        global_ssd += ssd;
+        pthread_mutex_unlock(&mutex);
+        pthread_barrier_wait(&s0);
         iter++;
+        if(tid == 0)
+        {
+            mse = sqrt(global_ssd); /* Mean squared error. */
+            global_ssd = 0;
+            global_iter = iter;
+            if ((mse <= THRESHOLD) || (iter == max_iter))
+            {
+                stop_threads = 1;
+#ifdef DEBUG
+                printf("DEBUG: Stopping threads. MSE = %f\n", mse);
+#endif
+            }
+        }
+
+        pthread_barrier_wait(&s1);
+
+        /* Flip the ping-pong buffers */
+        temp = src;
+        src = dest;
+        dest = temp;
     }
 
     return NULL;

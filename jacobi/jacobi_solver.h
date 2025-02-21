@@ -9,7 +9,6 @@
 /* #define DEBUG */
 #define PRINT 
 
-
 /* Matrix structure declaration */
 typedef struct matrix_s {
     unsigned int num_columns;   /* Matrix width */
