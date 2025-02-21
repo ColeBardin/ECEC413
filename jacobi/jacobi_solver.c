@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 #include <string.h>
 #include <math.h>
 #include "jacobi_solver.h"
@@ -34,6 +35,8 @@ int main(int argc, char **argv)
 	matrix_t reference_x;               /* Reference solution */ 
     matrix_t avx_solution_x;            /* Solution computed using AVX */
     matrix_t pthread_avx_solution_x;    /* Solution computed using pthreads + AVX */
+
+	struct timeval start, stop;
 
 	/* Generate diagonally dominant matrix */
 #ifdef PRINT
@@ -64,7 +67,11 @@ int main(int argc, char **argv)
     fprintf(stdout, "**************\n");
 	fprintf(stdout, "Generating solution using reference\n");
 #endif
+	gettimeofday(&start, NULL);
     compute_gold(A, reference_x, B, max_iter);
+	gettimeofday(&stop, NULL);
+	printf("Execution time (old) = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
     display_jacobi_solution(A, reference_x, B); /* Display statistics */
 #ifdef PRINT
     fprintf(stdout, "**************\n");
@@ -75,7 +82,11 @@ int main(int argc, char **argv)
     fprintf(stdout, "**************\n");
     fprintf(stdout, "Generating solution using AVX\n");
 #endif
+	gettimeofday(&start, NULL);
 	compute_using_avx(A, avx_solution_x, B, max_iter);
+	gettimeofday(&stop, NULL);
+	printf("Execution time (avx) = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
     display_jacobi_solution(A, avx_solution_x, B); /* Display statistics */
 #ifdef PRINT
     fprintf(stdout, "**************\n");
@@ -86,7 +97,11 @@ int main(int argc, char **argv)
     fprintf(stdout, "**************\n");
     fprintf(stdout, "Generating solution using pthreads + AVX\n");
 #endif
+	gettimeofday(&start, NULL);
 	compute_using_pthread_avx(A, pthread_avx_solution_x, B, max_iter, num_threads);
+	gettimeofday(&stop, NULL);
+	printf("Execution time (pthread + avx) = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
     display_jacobi_solution(A, pthread_avx_solution_x, B); /* Display statistics */
 #ifdef PRINT
     fprintf(stdout, "**************\n");

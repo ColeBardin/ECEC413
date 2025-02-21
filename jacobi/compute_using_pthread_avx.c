@@ -32,8 +32,7 @@ int global_iter;
 int stop_threads;
 float global_ssd;
 pthread_mutex_t mutex; 
-pthread_barrier_t s0;
-pthread_barrier_t s1;
+pthread_barrier_t bsync;
 
 void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x, const matrix_t B, int max_iter, int num_threads)
 {
@@ -43,10 +42,8 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
     int chunk_size = num_rows / num_threads;
 
     pthread_mutex_init(&mutex, NULL);
-    pthread_barrier_init(&s0, NULL, num_threads);
-    pthread_barrier_init(&s1, NULL, num_threads);
+    pthread_barrier_init(&bsync, NULL, num_threads);
 
-    /* FIXME testing */
     stop_threads = 0;
 
     /* Allocate n x 1 matrix to hold iteration values.*/
@@ -178,7 +175,7 @@ void *thread_body(void *arg)
         pthread_mutex_lock(&mutex);
         global_ssd += ssd;
         pthread_mutex_unlock(&mutex);
-        pthread_barrier_wait(&s0);
+        pthread_barrier_wait(&bsync);
         iter++;
         if(tid == 0)
         {
@@ -194,7 +191,7 @@ void *thread_body(void *arg)
             }
         }
 
-        pthread_barrier_wait(&s1);
+        pthread_barrier_wait(&bsync);
 
         /* Flip the ping-pong buffers */
         temp = src;
