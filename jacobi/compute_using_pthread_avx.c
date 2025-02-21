@@ -84,9 +84,9 @@ void compute_using_pthread_avx(const matrix_t A, matrix_t pthread_avx_solution_x
 
 #ifdef PRINT
     if (global_iter < max_iter)
-        fprintf(stderr, "\nConvergence achieved after %d iterations\n", global_iter);
+        fprintf(stdout, "\nConvergence achieved after %d iterations\n", global_iter);
     else
-        fprintf(stderr, "\nMaximum allowed iterations reached\n");
+        fprintf(stdout, "\nMaximum allowed iterations reached\n");
 #endif
 
     free(argz);

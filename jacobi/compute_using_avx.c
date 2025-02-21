@@ -87,7 +87,7 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
         num_iter++;
         mse = sqrt(ssd); /* Mean squared error. */
 #ifdef DEBUG
-        fprintf(stderr, "Iteration: %d. MSE = %f\n", num_iter, mse);
+        fprintf(stdout, "Iteration: %d. MSE = %f\n", num_iter, mse);
 #endif
 
         if ((mse <= THRESHOLD) || (num_iter == max_iter))
@@ -101,9 +101,9 @@ void compute_using_avx(const matrix_t A, matrix_t avx_solution_x, const matrix_t
 
 #ifdef PRINT
     if (num_iter < max_iter)
-        fprintf(stderr, "\nConvergence achieved after %d iterations\n", num_iter);
+        fprintf(stdout, "\nConvergence achieved after %d iterations\n", num_iter);
     else
-        fprintf(stderr, "\nMaximum allowed iterations reached\n");
+        fprintf(stdout, "\nMaximum allowed iterations reached\n");
 #endif
 
     free(new_x.elements);
