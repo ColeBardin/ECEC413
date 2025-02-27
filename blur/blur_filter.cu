@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	gettimeofday(&start, NULL);
     compute_gold(in, out_gold); 
 	gettimeofday(&stop, NULL);
-	printf("Execution time CPU = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+	printf("Execution time CPU = %f s\n", (float)(stop.tv_sec - start.tv_sec\
 				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 
 #ifdef DEBUG 
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	gettimeofday(&start, NULL);
    compute_on_device(in, out_gpu);
 	gettimeofday(&stop, NULL);
-	printf("Execution time GPU = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+	printf("Execution time GPU = %f s\n", (float)(stop.tv_sec - start.tv_sec\
 				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 #ifdef DEBUG
    print_image(in);
