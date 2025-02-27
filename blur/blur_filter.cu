@@ -7,8 +7,8 @@
     Author: Naga Kandasamy
     Date modified: February 20, 2025
 
-    Student name(s): FIXME
-    Date modified: FIXME
+    Student name(s): Cole Bardin
+    Date modified: 2/27/25
 */
 
 #include <stdlib.h>
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
     /* Allocate memory for the input and output images */
     int size = atoi(argv[1]);
 
-    fprintf(stderr, "Creating %d x %d images\n", size, size);
+    fprintf(stdout, "Creating %d x %d images\n", size, size);
     image_t in, out_gold, out_gpu;
     in.size = out_gold.size = out_gpu.size = size;
     in.element = (float *)malloc(sizeof(float) * size * size);
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
         in.element[i] = rand()/(float)RAND_MAX -  0.5;
   
    /* Calculate the blur on the CPU. The result is stored in out_gold. */
-    fprintf(stderr, "Calculating blur on the CPU\n"); 
+    fprintf(stdout, "Calculating blur on the CPU\n"); 
     compute_gold(in, out_gold); 
 
 #ifdef DEBUG 
@@ -64,20 +64,20 @@ int main(int argc, char **argv)
    print_image(out_gold);
 #endif
 
-   /* FIXME: Calculate the blur on the GPU. The result is stored in out_gpu. */
-   fprintf(stderr, "Calculating blur on the GPU\n");
+   /* Calculate the blur on the GPU. The result is stored in out_gpu. */
+   fprintf(stdout, "Calculating blur on the GPU\n");
    compute_on_device(in, out_gpu);
 
    /* Check CPU and GPU results for correctness */
-   fprintf(stderr, "Checking CPU and GPU results\n");
+   fprintf(stdout, "Checking CPU and GPU results\n");
    int num_elements = out_gold.size * out_gold.size;
    float eps = 1e-6;    /* Do not change */
    int check;
    check = check_results(out_gold.element, out_gpu.element, num_elements, eps);
    if (check == 0) 
-       fprintf(stderr, "TEST PASSED\n");
+       fprintf(stdout, "TEST PASSED\n");
    else
-       fprintf(stderr, "TEST FAILED\n");
+       fprintf(stdout, "TEST FAILED\n");
    
    /* Free data structures on the host */
    free((void *)in.element);
@@ -87,9 +87,35 @@ int main(int argc, char **argv)
     exit(EXIT_SUCCESS);
 }
 
-/* FIXME: Complete this function to calculate the blur on the GPU */
+/* Calculate the blur on the GPU */
 void compute_on_device(const image_t in, image_t out)
 {
+    // Allocate GPU memory
+    float *igp;
+    float *ogp;
+    int size = in.size * in.size * sizeof(float);
+
+    cudaMalloc((void**)&igp, size);
+    if(igp == NULL){
+        fprintf(stderr, "CUDA Malloc failed to allocate memory for input array\n");
+        return;
+    }
+    cudaMalloc((void**)&ogp, size);
+    if(ogp == NULL){
+        cudaFree(igp);
+        fprintf(stderr, "CUDA Malloc failed to allocate memory for output array\n");
+        return;
+    }
+    cudaMemcpy(igp, in.element, size, cudaMemcpyHostToDevice);
+
+    // Define thread blocks and shiz
+    // Call kernel
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(out.element, ogp, size, cudaMemcpyDeviceToHost);
+
+    cudaFree(igp);
+    cudaFree(ogp);
     return;
 }
 
