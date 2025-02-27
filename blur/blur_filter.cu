@@ -22,6 +22,8 @@
 /* Include the kernel code */
 #include "blur_filter_kernel.cu"
 
+#define TILE_SIZE 32
+
 extern "C" void compute_gold(const image_t, image_t);
 void compute_on_device(const image_t, image_t);
 int check_results(const float *, const float *, int, float);
@@ -49,6 +51,8 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+	struct timeval start, stop;
+
     /* Poplulate our image with random values between [-0.5 +0.5] */
     srand(time(NULL));
     int i;
@@ -57,7 +61,11 @@ int main(int argc, char **argv)
   
    /* Calculate the blur on the CPU. The result is stored in out_gold. */
     fprintf(stdout, "Calculating blur on the CPU\n"); 
+	gettimeofday(&start, NULL);
     compute_gold(in, out_gold); 
+	gettimeofday(&stop, NULL);
+	printf("Execution time CPU = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 
 #ifdef DEBUG 
    print_image(in);
@@ -66,7 +74,15 @@ int main(int argc, char **argv)
 
    /* Calculate the blur on the GPU. The result is stored in out_gpu. */
    fprintf(stdout, "Calculating blur on the GPU\n");
+	gettimeofday(&start, NULL);
    compute_on_device(in, out_gpu);
+	gettimeofday(&stop, NULL);
+	printf("Execution time GPU = %fs\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
+#ifdef DEBUG
+   print_image(in);
+   print_image(out_gpu);
+#endif
 
    /* Check CPU and GPU results for correctness */
    fprintf(stdout, "Checking CPU and GPU results\n");
@@ -109,7 +125,11 @@ void compute_on_device(const image_t in, image_t out)
     cudaMemcpy(igp, in.element, size, cudaMemcpyHostToDevice);
 
     // Define thread blocks and shiz
+    dim3 threads(TILE_SIZE, TILE_SIZE);
+    dim3 grid((in.size + TILE_SIZE - 1)/TILE_SIZE, (in.size + TILE_SIZE - 1)/TILE_SIZE);
+
     // Call kernel
+    blur_filter_kernel<<< grid, threads >>>(igp, ogp, in.size);
     cudaDeviceSynchronize();
 
     cudaMemcpy(out.element, ogp, size, cudaMemcpyDeviceToHost);
