@@ -7,8 +7,8 @@
  * Author: Naga Kandasamy
  * Date modified: February 28, 2025
 
- * Student name(s): FIXME
- * Date modified: FIXME
+ * Student name(s): Cole Bardin 
+ * Date modified: 3/7/25
 */
 
 #include <stdlib.h>
@@ -42,18 +42,41 @@ int main(int argc, char **argv)
 	printf("Number of trapezoids = %d\n", n);
     printf("Height of each trapezoid = %f \n", h);
 
+	struct timeval start, stop;
+
+	gettimeofday(&start, NULL);
 	double reference = compute_gold(a, b, n, h);
+	gettimeofday(&stop, NULL);
     printf("Reference solution computed on the CPU = %f \n", reference);
+	printf("Execution time CPU = %f s\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 
 	/* Write this function to complete the trapezoidal on the GPU. */
+	gettimeofday(&start, NULL);
 	double gpu_result = compute_on_device(a, b, n, h);
+	gettimeofday(&stop, NULL);
 	printf("Solution computed on the GPU = %f \n", gpu_result);
+	printf("Execution time GPU= %f s\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 } 
 
 /* Complete this function to perform the trapezoidal rule on the GPU. */
 double compute_on_device(float a, float b, int n, float h)
 {
-    return 0.0;
+    double integral;
+    double *ret_on_device;
+
+    cudaMalloc((void **)&ret_on_device, sizeof(double));
+    cudaMemset(ret_on_device, 0.0f, sizeof(double));
+
+    dim3 tb(TB_SZ);
+    dim3 grid((n + TB_SZ - 1) / TB_SZ);
+    trap_kernel<<< grid, tb >>>(a, b, n, h, ret_on_device);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(&integral, ret_on_device, sizeof(double), cudaMemcpyDeviceToHost);
+
+    return integral;
 }
 
 
