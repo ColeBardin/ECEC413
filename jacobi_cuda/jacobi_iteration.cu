@@ -113,13 +113,25 @@ void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B)
     dim3 tb(1, THREAD_BLOCK_SIZE);
     dim3 grid(1, (NUM_ROWS + THREAD_BLOCK_SIZE - 1) / THREAD_BLOCK_SIZE);
 
+    float *src;
+    float *dst;
+    float *temp;
+
+    src = x_dev.elements;
+    dst = new_x_dev.elements;
     done = false;
     while(!done)
     {
         cudaMemset((void **)&ssd_dev, 0, sizeof(double));
-        jacobi_iteration_kernel_naive<<<grid, tb>>>(A_dev.elements, B_dev.elements, x_dev.elements, new_x_dev.elements, ssd_dev);
+        jacobi_iteration_kernel_naive<<<grid, tb>>>(A_dev.elements, B_dev.elements, src, dst, ssd_dev);
         cudaMemcpy(&ssd, ssd_dev, sizeof(double), cudaMemcpyDeviceToHost); 
+        if(sqrt(ssd) < THRESHOLD) done = true;
+        temp = src;
+        src = dst;
+        dst = temp;
     }
+
+    copy_matrix_from_device(x, x_dev);
 
     cudaFree(A_dev.elements);
     cudaFree(x_dev.elements);
