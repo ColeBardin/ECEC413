@@ -4,10 +4,11 @@
 #define THRESHOLD 1e-5      /* Threshold for convergence */
 #define MIN_NUMBER 2        /* Min number in the A and b matrices */
 #define MAX_NUMBER 10       /* Max number in the A and b matrices */
+#define MAX_ITER 1000000 
 
-#define THREAD_BLOCK_SIZE 128            /* Size of a thread block */
+#define THREAD_BLOCK_SIZE 128           /* Size of a thread block */
 
-#define MATRIX_SIZE 1024
+#define MATRIX_SIZE 512
 #define NUM_COLUMNS MATRIX_SIZE         /* Number of columns in matrix A */
 #define NUM_ROWS MATRIX_SIZE            /* Number of rows in matrix A */
 
@@ -25,6 +26,7 @@ void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B);
 void solve_cuda_optimized(const matrix_t A, matrix_t x, const matrix_t B);
 matrix_t allocate_matrix_on_device(const matrix_t);
 matrix_t allocate_matrix_on_host(int, int, int);
+void matrix_transpose(const matrix_t, matrix_t);
 int check_if_diagonal_dominant(const matrix_t);
 matrix_t create_diagonally_dominant_matrix(unsigned int, unsigned int);
 void copy_matrix_to_device(matrix_t, const matrix_t);

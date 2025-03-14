@@ -61,17 +61,21 @@ int main(int argc, char **argv)
 	print_matrix(reference_x);
 #endif
 
+	struct timeval start, stop;
+
     /* Compute Jacobi solution on CPU */
 	printf("\nPerforming Jacobi iteration on the CPU\n");
+	gettimeofday(&start, NULL);
     compute_gold(A, reference_x, B);
+	gettimeofday(&stop, NULL);
     display_jacobi_solution(A, reference_x, B); /* Display statistics */
+	printf("Execution time CPU = %f s\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
 	
 	/* Compute Jacobi solution on device. Solutions are returned 
        in gpu_naive_solution_x and gpu_opt_solution_x. */
     printf("\nPerforming Jacobi iteration on device\n");
 	compute_on_device(A, gpu_naive_solution_x, gpu_opt_solution_x, B);
-    display_jacobi_solution(A, gpu_naive_solution_x, B); /* Display statistics */
-    display_jacobi_solution(A, gpu_opt_solution_x, B); 
     
     free(A.elements); 
 	free(B.elements); 
@@ -83,17 +87,32 @@ int main(int argc, char **argv)
 }
 
 
-/* FIXME: Complete this function to perform Jacobi calculation on device */
 void compute_on_device(const matrix_t A, matrix_t gpu_naive_sol_x, 
                        matrix_t gpu_opt_sol_x, const matrix_t B)
 {
+	struct timeval start, stop;
+
+    printf("Naive solution:\n");
+	gettimeofday(&start, NULL);
     solve_cuda_naive(A, gpu_naive_sol_x, B);
+	gettimeofday(&stop, NULL);
+    display_jacobi_solution(A, gpu_naive_sol_x, B); /* Display statistics */
+	printf("Execution time GPU Naive = %f s\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
+
+    printf("Optimized solution:\n");
+	gettimeofday(&start, NULL);
     solve_cuda_optimized(A, gpu_opt_sol_x, B);
+	gettimeofday(&stop, NULL);
+    display_jacobi_solution(A, gpu_opt_sol_x, B); 
+	printf("Execution time GPU Optimized = %f s\n", (float)(stop.tv_sec - start.tv_sec\
+				+ (stop.tv_usec - start.tv_usec)/(float)1000000));
     return;
 }
 
 void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B)
 {
+    int num_iter;
     bool done;
     matrix_t A_dev = allocate_matrix_on_device(A);
     matrix_t x_dev = allocate_matrix_on_device(x);
@@ -104,8 +123,8 @@ void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B)
     copy_matrix_to_device(B_dev, B); 
 
     matrix_t new_x_dev = allocate_matrix_on_device(x);
-    cudaMemset((void **)new_x_dev.elements, 0, new_x_dev.num_rows * new_x_dev.num_columns * sizeof(float));
 
+    double mse;
     double ssd;
     double *ssd_dev;
     cudaMalloc((void **)&ssd_dev, sizeof(double));
@@ -119,29 +138,92 @@ void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B)
 
     src = x_dev.elements;
     dst = new_x_dev.elements;
+    ssd = 0.0f;
     done = false;
+    num_iter = 0;
     while(!done)
     {
-        cudaMemset((void **)&ssd_dev, 0, sizeof(double));
-        jacobi_iteration_kernel_naive<<<grid, tb>>>(A_dev.elements, B_dev.elements, src, dst, ssd_dev);
+        cudaMemset(ssd_dev, 0.0f, sizeof(double));
+
+        jacobi_iteration_kernel_naive<<< grid, tb >>>(A_dev.elements, B_dev.elements, src, dst, ssd_dev);
+        cudaDeviceSynchronize();
+
+        num_iter++;
         cudaMemcpy(&ssd, ssd_dev, sizeof(double), cudaMemcpyDeviceToHost); 
-        if(sqrt(ssd) < THRESHOLD) done = true;
+        mse = sqrt(ssd);
+        if(mse <= THRESHOLD || num_iter >= MAX_ITER) done = true;
         temp = src;
         src = dst;
         dst = temp;
     }
 
+    //printf("\nConvergence achieved after %d iterations \n", num_iter);
     copy_matrix_from_device(x, x_dev);
 
     cudaFree(A_dev.elements);
     cudaFree(x_dev.elements);
     cudaFree(B_dev.elements);
     cudaFree(new_x_dev.elements);
+    cudaFree(ssd_dev);
 }
 
 void solve_cuda_optimized(const matrix_t A, matrix_t x, const matrix_t B)
 {
+    int num_iter;
+    bool done;
 
+    matrix_t At = allocate_matrix_on_host(MATRIX_SIZE, MATRIX_SIZE, 0);
+    matrix_transpose(A, At);
+
+    matrix_t A_dev = allocate_matrix_on_device(A);
+    matrix_t x_dev = allocate_matrix_on_device(x);
+    matrix_t B_dev = allocate_matrix_on_device(B);
+
+    copy_matrix_to_device(A_dev, At); 
+    copy_matrix_to_device(x_dev, B); 
+    copy_matrix_to_device(B_dev, B); 
+    
+    matrix_t new_x_dev = allocate_matrix_on_device(x);
+
+    double mse;
+    double ssd;
+    double *ssd_dev;
+    cudaMalloc((void **)&ssd_dev, sizeof(double));
+
+    dim3 tb(THREAD_BLOCK_SIZE);
+    dim3 grid((NUM_ROWS + THREAD_BLOCK_SIZE - 1) / THREAD_BLOCK_SIZE);
+
+    float *src;
+    float *dst;
+    float *temp;
+
+    src = x_dev.elements;
+    dst = new_x_dev.elements;
+    done = false;
+    num_iter = 0;
+    while(!done)
+    {
+        cudaMemset(ssd_dev, 0.0f, sizeof(double));
+
+        jacobi_iteration_kernel_optimized<<< grid, tb >>>(A_dev.elements, B_dev.elements, src, dst, ssd_dev);
+
+        num_iter++;
+        cudaMemcpy(&ssd, ssd_dev, sizeof(double), cudaMemcpyDeviceToHost); 
+        mse = sqrt(ssd);
+        if(mse <= THRESHOLD || num_iter >= MAX_ITER) done = true;
+        temp = src;
+        src = dst;
+        dst = temp;
+    }
+
+    //printf("\nConvergence achieved after %d iterations \n", num_iter);
+    copy_matrix_from_device(x, x_dev);
+
+    cudaFree(A_dev.elements);
+    cudaFree(x_dev.elements);
+    cudaFree(B_dev.elements);
+    cudaFree(new_x_dev.elements);
+    free(At.elements);
 }
 
 /* Allocate matrix on the device of same size as M */
@@ -174,6 +256,23 @@ matrix_t allocate_matrix_on_host(int num_rows, int num_columns, int init)
     
     return M;
 }	
+
+void matrix_transpose(const matrix_t src, matrix_t dst)
+{
+    int row, col;
+    if(src.num_rows != dst.num_rows ||
+       src.num_columns != dst.num_columns ||
+       src.elements == NULL || dst.elements == NULL
+      ) return;
+
+    for(row = 0; row < src.num_rows; row++)
+    {
+        for(col = 0; col < src.num_columns; col++)
+        {
+            dst.elements[col * src.num_rows + row] = src.elements[row * src.num_columns + col];
+        }
+    }
+}
 
 /* Copy matrix to device */
 void copy_matrix_to_device(matrix_t Mdevice, const matrix_t Mhost)

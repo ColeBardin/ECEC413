@@ -9,7 +9,6 @@ void compute_gold(const matrix_t A, matrix_t x, const matrix_t B)
     unsigned int i, j, k;
     unsigned int num_rows = A.num_rows;
     unsigned int num_cols = A.num_columns;
-    int max_iter = 1000000; 
 
     /* Allocate n x 1 matrix to hold iteration values */
     matrix_t new_x = allocate_matrix_on_host(MATRIX_SIZE, 1, 0);      
@@ -59,13 +58,13 @@ void compute_gold(const matrix_t A, matrix_t x, const matrix_t B)
         }
         num_iter++;
         mse = sqrt (ssd); /* Mean squared error. */
-        printf("Iteration: %d. MSE = %f\n", num_iter, mse); 
+        //printf("Iteration: %d. MSE = %f\n", num_iter, mse); 
         
-        if ((mse <= THRESHOLD) || (num_iter == max_iter))
+        if ((mse <= THRESHOLD) || (num_iter == MAX_ITER))
             done = 1;
     }
 
-    printf("\nConvergence achieved after %d iterations \n", num_iter);
+    //printf("\nConvergence achieved after %d iterations \n", num_iter);
     free(new_x.elements);
 }
     
