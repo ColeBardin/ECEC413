@@ -21,6 +21,8 @@ typedef struct matrix_s {
 /* Function prototypes */
 extern "C" void compute_gold(const matrix_t, matrix_t, const matrix_t);
 extern "C" void display_jacobi_solution(const matrix_t, const matrix_t, const matrix_t);
+void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B);
+void solve_cuda_optimized(const matrix_t A, matrix_t x, const matrix_t B);
 matrix_t allocate_matrix_on_device(const matrix_t);
 matrix_t allocate_matrix_on_host(int, int, int);
 int check_if_diagonal_dominant(const matrix_t);

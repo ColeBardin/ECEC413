@@ -6,12 +6,13 @@
  * Author: Naga Kandasamy
  * Date modified: March 6, 2025
  *
- * Student name(s); FIXME
- * Date modified: FIXME
-*/
+ * Student name(s); Cole Bardin
+ * Date modified: 3/14/25
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <sys/time.h>
 #include <string.h>
 #include <math.h>
@@ -86,7 +87,49 @@ int main(int argc, char **argv)
 void compute_on_device(const matrix_t A, matrix_t gpu_naive_sol_x, 
                        matrix_t gpu_opt_sol_x, const matrix_t B)
 {
+    solve_cuda_naive(A, gpu_naive_sol_x, B);
+    solve_cuda_optimized(A, gpu_opt_sol_x, B);
     return;
+}
+
+void solve_cuda_naive(const matrix_t A, matrix_t x, const matrix_t B)
+{
+    bool done;
+    matrix_t A_dev = allocate_matrix_on_device(A);
+    matrix_t x_dev = allocate_matrix_on_device(x);
+    matrix_t B_dev = allocate_matrix_on_device(B);
+
+    copy_matrix_to_device(A_dev, A); 
+    copy_matrix_to_device(x_dev, B); 
+    copy_matrix_to_device(B_dev, B); 
+
+    matrix_t new_x_dev = allocate_matrix_on_device(x);
+    cudaMemset((void **)new_x_dev.elements, 0, new_x_dev.num_rows * new_x_dev.num_columns * sizeof(float));
+
+    double ssd;
+    double *ssd_dev;
+    cudaMalloc((void **)&ssd_dev, sizeof(double));
+
+    dim3 tb(1, THREAD_BLOCK_SIZE);
+    dim3 grid(1, (NUM_ROWS + THREAD_BLOCK_SIZE - 1) / THREAD_BLOCK_SIZE);
+
+    done = false;
+    while(!done)
+    {
+        cudaMemset((void **)&ssd_dev, 0, sizeof(double));
+        jacobi_iteration_kernel_naive<<<grid, tb>>>(A_dev.elements, B_dev.elements, x_dev.elements, new_x_dev.elements, ssd_dev);
+        cudaMemcpy(&ssd, ssd_dev, sizeof(double), cudaMemcpyDeviceToHost); 
+    }
+
+    cudaFree(A_dev.elements);
+    cudaFree(x_dev.elements);
+    cudaFree(B_dev.elements);
+    cudaFree(new_x_dev.elements);
+}
+
+void solve_cuda_optimized(const matrix_t A, matrix_t x, const matrix_t B)
+{
+
 }
 
 /* Allocate matrix on the device of same size as M */
